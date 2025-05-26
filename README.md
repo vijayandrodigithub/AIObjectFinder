@@ -24,4 +24,7 @@ Object label, confidence score, and category.
 Button disables while detection is in progress.
 Default message in blue before first capture.
 
+![AiObjectFinder](https://github.com/user-attachments/assets/108bfd65-e57a-4fe0-8d9d-4ab6452c2d2a)
+
+
 
