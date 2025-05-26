@@ -80,55 +80,67 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
         val previewView = remember { PreviewView(context) }
+
         var isObjectDetected by remember { mutableStateOf(false) }
         var detectionResult by remember { mutableStateOf<DetectionResult?>(null) }
-        var captureTxt by remember { mutableStateOf("Capture") }
+        var isProcessing by remember { mutableStateOf(false) }
+        var hasCaptured by remember { mutableStateOf(false) }
 
-        Column(modifier = Modifier.fillMaxSize(),
+        val captureText = if (isProcessing) "Processing..." else if (hasCaptured) "Capture Again" else "Capture"
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally) {
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             AndroidView(factory = { previewView }, modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f))
 
             Button(
                 onClick = {
+                    isProcessing = true
                     takePhoto(context) {
-                        val (isExecuted, detectedObj) = it
-                        isObjectDetected = isExecuted
+                        val (isDetected, detectedObj) = it
+                        isObjectDetected = isDetected
                         detectionResult = detectedObj
+                        isProcessing = false
+                        hasCaptured = true
                     }
                 },
+                enabled = !isProcessing,
                 modifier = Modifier
                     .width(200.dp)
                     .padding(16.dp)
             ) {
-                Text(text = captureTxt)
+                Text(text = captureText)
+            }
+
+            val resultText = when {
+                !hasCaptured -> "📷 Ready to capture. Click the button below."
+                detectionResult != null && isObjectDetected -> {
+                    "✅ Target Object Found!\n" +
+                            "Label: ${detectionResult?.label}\n" +
+                            "Score: ${"%.2f".format(detectionResult?.score?.times(100) ?: 0f)}%\n" +
+                            "Category: ${detectionResult?.category?.label}"
+                }
+                detectionResult != null -> {
+                    "✅ Object Detected (Not a Target)\n" +
+                            "Label: ${detectionResult?.label}\n" +
+                            "Score: ${"%.2f".format(detectionResult?.score?.times(100) ?: 0f)}%\n" +
+                            "Category: ${detectionResult?.category?.label}"
+                }
+                else -> {
+                    "📷 No object detected. Try again."
+                }
             }
 
             Text(
-                text = when {
-                    detectionResult != null && isObjectDetected -> {
-                        captureTxt = "Capture Again"
-                        "✅ Target Object Found!\n" +
-                                "Label: ${detectionResult?.label}\n" +
-                                "Score: ${"%.2f".format(detectionResult?.score?.times(100) ?: 0f)}%\n" +
-                                "Category: ${detectionResult?.category?.label}"
-                    }
-                    detectionResult != null -> {
-                        captureTxt = "Capture Again"
-                        "✅ Object Details!\n\n" +
-                                "Label: ${detectionResult?.label}\n\n" +
-                                "Score: ${"%.2f".format(detectionResult?.score?.times(100) ?: 0f)}%\n\n" +
-                                "Category: ${detectionResult?.category?.label}"
-                    }
-                    else -> {
-                        captureTxt = "Capture Again"
-                        "📷 No object detected. Try again."
-                    }
-                },
+                text = resultText,
+                color = if (!hasCaptured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
-                    .fillMaxWidth().align(Alignment.CenterHorizontally)
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
                     .padding(16.dp)
             )
         }
@@ -154,6 +166,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     private fun takePhoto(context: Context, invoke: (Pair<Boolean, DetectionResult?>) -> Unit) {
         val imageCapture = imageCapture ?: return
@@ -205,6 +218,7 @@ class MainActivity : ComponentActivity() {
         val label = category?.label ?: "Unknown"
         val score = category?.score ?: 0f
 
+        Log.i("ObjectDetection", "Label: $label, Score: $score Category: $category")
         val detectionResult = DetectionResult(label, score, category)
 
         val targetFound = label.contains("bin", true)
